@@ -1,0 +1,43 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidMessage(data) {
+      return data.keys().hasAll(['role', 'content', 'timestamp']) &&
+             data.keys().size() == 3 &&
+             data.role in ['user', 'model'] &&
+             data.content is string &&
+             data.content.size() <= 5000 &&
+             data.timestamp is number;
+    }
+
+    function isValidProfile(data) {
+      return data.keys().hasAny(['lastSeen']) &&
+             (data.get('lastSeen', null) == null || data.lastSeen is number);
+    }
+
+    // User data rules
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow create, update: if isOwner(userId) && isValidProfile(request.resource.data);
+      
+      match /messages/{messageId} {
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidMessage(request.resource.data);
+      }
+    }
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "entities": {
+    "Message": {
+      "title": "Message",
+      "description": "A single message in the chat conversation",
+      "type": "object",
+      "properties": {
+        "role": {
+          "type": "string",
+          "enum": ["user", "model"],
+          "description": "The sender of the message"
+        },
+        "content": {
+          "type": "string",
+          "description": "The text content of the message"
+        },
+        "timestamp": {
+          "type": "number",
+          "format": "timestamp",
+          "description": "The time the message was sent"
+        }
+      },
+      "required": ["role", "content", "timestamp"]
+    },
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Metadata about the user's session",
+      "type": "object",
+      "properties": {
+        "lastSeen": {
+          "type": "number",
+          "description": "Last time the user interacted with Vivi"
+        }
+      }
+    }
+  },
+  "firestore": {
+    "/users/{userId}/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Collection of chat messages for a specific user"
+    },
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User specific metadata and settings"
+    }
+  }
+}
