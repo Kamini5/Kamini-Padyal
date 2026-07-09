@@ -14,7 +14,8 @@ import {
   GoogleAuthProvider, 
   onAuthStateChanged, 
   signOut,
-  User 
+  User,
+  signInAnonymously 
 } from 'firebase/auth';
 import { 
   getFirestore, 
@@ -101,11 +102,24 @@ export default function App() {
   const [isTyping, setIsTyping] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const chatInstance = useRef<any>(null);
 
+  // Validate Connection logic
+  const validateConnection = async () => {
+    try {
+      await getDoc(doc(db, 'system', 'connection'));
+    } catch (error: any) {
+      if (error.message?.includes('offline')) {
+        console.error("Firebase is offline. Check configuration.");
+      }
+    }
+  };
+
   // Auth Observer
   useEffect(() => {
+    validateConnection();
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       setIsAuthLoading(false);
@@ -258,10 +272,30 @@ As Vivi, send a casual, soul-sister Hinglish check-in.
   };
 
   const login = async () => {
+    setAuthError(null);
     try {
       await signInWithPopup(auth, googleProvider);
-    } catch (error) {
+    } catch (error: any) {
+      if (error.code === 'auth/popup-closed-by-user') {
+        setAuthError("Login window was closed. Try again?");
+      } else {
+        setAuthError("Something went wrong with login. Please check your connection.");
+      }
       console.error("Login failed:", error);
+    }
+  };
+
+  const loginAsGuest = async () => {
+    setAuthError(null);
+    try {
+      await signInAnonymously(auth);
+    } catch (error: any) {
+      if (error.code === 'auth/admin-restricted-operation') {
+        setAuthError("Guest login needs to be enabled in Firebase Console > Authentication > Sign-in method.");
+      } else {
+        setAuthError("Guest login failed. Please try Google sign-in.");
+      }
+      console.error("Guest login failed:", error);
     }
   };
 
@@ -297,13 +331,32 @@ As Vivi, send a casual, soul-sister Hinglish check-in.
           </p>
         </div>
 
-        <button 
-          onClick={login}
-          className="relative z-10 flex items-center gap-3 bg-white text-indigo-900 px-8 py-4 rounded-full font-bold hover:bg-slate-100 transition-all shadow-xl hover:shadow-indigo-500/20 active:scale-95"
-        >
-          <LogIn className="w-5 h-5" />
-          Sign in with Google
-        </button>
+        <div className="relative z-10 flex flex-col gap-4 w-full max-w-xs">
+          <button 
+            onClick={login}
+            className="flex items-center justify-center gap-3 bg-white text-indigo-900 px-8 py-4 rounded-full font-bold hover:bg-slate-100 transition-all shadow-xl hover:shadow-indigo-500/20 active:scale-95"
+          >
+            <LogIn className="w-5 h-5" />
+            Sign in with Google
+          </button>
+          
+          <button 
+            onClick={loginAsGuest}
+            className="flex items-center justify-center gap-3 bg-white/5 border border-white/10 text-white px-8 py-4 rounded-full font-medium hover:bg-white/10 transition-all active:scale-95"
+          >
+            Continue as Guest
+          </button>
+        </div>
+
+        {authError && (
+          <motion.p 
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }} 
+            className="text-red-400 text-xs font-medium animate-pulse"
+          >
+            {authError}
+          </motion.p>
+        )}
       </div>
     );
   }
